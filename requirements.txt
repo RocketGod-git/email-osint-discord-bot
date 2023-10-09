@@ -1,0 +1,4 @@
+discord
+httpx
+holehe
+aiohttp
