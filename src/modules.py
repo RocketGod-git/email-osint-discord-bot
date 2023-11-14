@@ -2,7 +2,6 @@ import os
 import importlib
 import inspect
 import httpx
-import holehe
 import logging
 import site
 
@@ -32,7 +31,7 @@ def get_all_functions_from_holehe():
     if not os.path.exists(modules_dir):
         logging.error(f"Directory does not exist: {modules_dir}")
         return {}
-    
+
     # List all the subdirectories within the 'modules' directory.
     subdirectories = [d for d in os.listdir(modules_dir) if os.path.isdir(os.path.join(modules_dir, d)) and not d.startswith("__")]
 
@@ -45,7 +44,7 @@ def get_all_functions_from_holehe():
         for module_name in available_modules:
             module_path = f"{base_module_path}.{subdirectory}.{module_name}"
             functions = get_functions_from_path(module_path)
-            all_functions.update(functions)
+            all_functions |= functions
 
             logging.info(f"Added functions from {module_name}: {list(functions.keys())}")
 

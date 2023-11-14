@@ -73,16 +73,17 @@ class aclient(discord.Client):
             logging.warning("Attempted to send an empty message.")
             return
 
-        query = ""
-        for option in interaction.data.get("options", []):
-            if option.get("name") == "query":
-                query = option.get("value", "")
-                break
-
-        prepend_text = ""
-        if query:
+        if query := next(
+            (
+                option.get("value", "")
+                for option in interaction.data.get("options", [])
+                if option.get("name") == "query"
+            ),
+            "",
+        ):
             prepend_text = f"Query: {query}\n\n"
-
+        else:
+            prepend_text = ""
         lines = message.split("\n")
         chunks = []
         current_chunk = ""
@@ -143,16 +144,18 @@ class aclient(discord.Client):
         return await holehe_modules.check_email(email, module_data)
 
     async def get_breaches(self, email, api_key):
-        url = f"{HIBP_API_BASE}/breachedaccount/{email}?truncateResponse=false" 
+        url = f"{HIBP_API_BASE}/breachedaccount/{email}?truncateResponse=false"
         local_headers = {
             "hibp-api-key": api_key,
             "user-agent": "BreachFinder"
         }
-        logging.debug(f"Headers for request to {url}: {local_headers}") 
+        logging.debug(f"Headers for request to {url}: {local_headers}")
         try:
             async with self.session.get(url, headers=local_headers) as response:
                 # Log the timestamp
-                logging.info(f"Made a request to {url} at {datetime.datetime.utcnow()} UTC")
+                logging.info(
+                    f"Made a request to {url} at {datetime.datetime.now(datetime.timezone.utc)} UTC"
+                )
 
                 # Log full response headers and status code
                 logging.info(f"Full Response Headers: {response.headers}")
@@ -164,7 +167,7 @@ class aclient(discord.Client):
 
                 data = await response.text()
                 logging.debug(f"Raw response from API (breaches): {data}")
-                
+
                 if response.status == 200:
                     return await response.json() or []
                 elif response.status == 400:
@@ -195,17 +198,19 @@ class aclient(discord.Client):
 
     async def get_pastes(self, email, api_key):
         url = f"{HIBP_API_BASE}/pasteaccount/{email}"
-        
+
         local_headers = {
             "hibp-api-key": api_key,
             "user-agent": "BreachFinder"
         }
         logging.debug(f"Headers for request to {url}: {local_headers}")  
-        
+
         try:
             async with self.session.get(url, headers=local_headers) as response:
                 # Log the timestamp
-                logging.info(f"Made a request to {url} at {datetime.datetime.utcnow()} UTC")
+                logging.info(
+                    f"Made a request to {url} at {datetime.datetime.now(datetime.timezone.utc)} UTC"
+                )
 
                 # Log full response headers and status code
                 logging.info(f"Full Response Headers: {response.headers}")
@@ -217,7 +222,7 @@ class aclient(discord.Client):
 
                 data = await response.text()
                 logging.debug(f"Raw response from API (pastes): {data}")
-                
+
                 if response.status == 200:
                     return await response.json() or []
                 elif response.status == 400:
@@ -252,11 +257,13 @@ class aclient(discord.Client):
             "hibp-api-key": config.get("hibp_api_key"),
             "user-agent": "BreachFinder"
         }
-        logging.debug(f"Headers for request to {url}: {local_headers}")  
+        logging.debug(f"Headers for request to {url}: {local_headers}")
         try:
             async with self.session.get(url, headers=local_headers) as response:
                 # Log the timestamp
-                logging.info(f"Made a request to {url} at {datetime.datetime.utcnow()} UTC")
+                logging.info(
+                    f"Made a request to {url} at {datetime.datetime.now(datetime.timezone.utc)} UTC"
+                )
 
                 # Log full response headers and status code
                 logging.info(f"Full Response Headers: {response.headers}")
@@ -264,7 +271,7 @@ class aclient(discord.Client):
 
                 data = await response.text()
                 logging.debug(f"Raw response from API (password breach count): {data}")
-                
+
                 if response.status == 200:
                     lines = data.splitlines()
                     for line in lines:
@@ -307,17 +314,17 @@ def run_discord_bot(token):
     @client.tree.command(name="email", description="Check an email for social media accounts, data breaches, and pastes.")
     async def email_check(interaction: discord.Interaction, email: str):
         logging.info(f"Starting email check for {email}.")
-        
+
         await interaction.response.defer(ephemeral=False)
-        
+
         # Checking with Holehe
         all_functions = holehe_modules.get_all_functions_from_holehe()
         logging.info(f"Loaded {len(all_functions)} functions from Holehe for checking.")
         holehe_results = await client.check_email_with_holehe(email, all_functions)
-        
+
         breaches = None
         pastes = None
-        
+
         try:
             # Checking with HaveIBeenPwned
             logging.debug(f"Starting HIBP checks for {email}.")
@@ -359,7 +366,7 @@ def run_discord_bot(token):
             if not isinstance(breaches, list) or not all(isinstance(breach, dict) for breach in breaches):
                 logging.error(f"Unexpected data type/format for HIBP breaches: {breaches}")
                 return
-            
+
             try:
                 formatted_breaches = []
 
@@ -397,11 +404,13 @@ def run_discord_bot(token):
                     formatted_breaches.append('\n'.join(breach_details))
 
                 separator = "\n\n" + '-'*40
-                output_messages.append("BREACHES:" + separator + separator.join(formatted_breaches))
-            
+                output_messages.append(
+                    f"BREACHES:{separator}{separator.join(formatted_breaches)}"
+                )
+
             except TypeError:
                 logging.error(f"Unexpected data format for breaches: {breaches}")
-                
+
         elif breaches is not None:  
             output_messages.append(f"No breaches found for the account: {email}")
 
@@ -428,9 +437,13 @@ def run_discord_bot(token):
                     formatted_pastes.append('\n'.join(paste_details))
 
                 separator = "\n\n" + '-'*40
-                output_messages.append("PASTES:" + separator + "\n\n" + separator.join(formatted_pastes))
+                output_messages.append(
+                    f"PASTES:{separator}"
+                    + "\n\n"
+                    + separator.join(formatted_pastes)
+                )
             except TypeError:
-                logging.error("Unexpected data format for pastes: " + str(pastes))
+                logging.error(f"Unexpected data format for pastes: {str(pastes)}")
         elif pastes is not None:  
             output_messages.append(f"No pastes found for the account: {email}")
 
